@@ -7,6 +7,7 @@
 ![INFERRED emitted](https://img.shields.io/badge/INFERRED_emitted-0-success)
 ![Network](https://img.shields.io/badge/network-offline-lightgrey)
 
+
 InduSpecSmith AI transforms a raw 6-column industrial product feed into a complete
 252-column UniLog Delivery Format catalog — using a fully deterministic,
 rule-based pipeline that **never invents a value**. Every enriched field is either
@@ -14,6 +15,12 @@ copied verbatim from the input, deterministically normalized from an exact token
 found in the product description, or left honestly blank. The result is an
 auditable, byte-for-byte reproducible enrichment system with zero hallucinated
 content, verified by a 140-test suite and a hard evaluation gate.
+
+---
+
+## 🚀 Live Demo
+
+👉 **([Open InduSpecSmith AI](https://induspecsmithai-2fbxl9oe6qh4qx3tutmjxp.streamlit.app/))**
 
 ---
 
