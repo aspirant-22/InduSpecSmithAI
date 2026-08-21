@@ -475,5 +475,68 @@ class Phase6ProvenanceTests(unittest.TestCase):
                 self.assertEqual(f.status, NORMALIZED)
 
 
+class Phase7RegressionTests(unittest.TestCase):
+    """Regressions for false positives demonstrated in the Phase 7 audit."""
+
+    def test_amperage_never_from_part_number_tokens(self):
+        from src.extract import extract_amperage
+        fps = ["37418A Kichler Bath Light",
+               "3000A Whiteside Router Bit",
+               "9A-570-240 Abranet 2.75x30",
+               "KPTDR050A Kreg 20V Ionic Compact Drill",
+               "TGI2-T36A 36\" Table Assembly Industrial",
+               "BCB2A20A Kreg 20V Battery/Charger Starter Kit",
+               "BATT4A Kreg 20V 4ah Battery Pack"]
+        for desc in fps:
+            self.assertIsNone(extract_amperage(desc), desc)
+
+    def test_amperage_standalone_ratings_survive(self):
+        from src.extract import extract_amperage
+        legits = [("HOM2040M200PRB Homeline 200A Main Breaker Panel", "200"),
+                  ("QO612L100RBCP Load Center 100A", "100"),
+                  ("GFCI Receptacle 15A 120V", "15"),
+                  ("Motor draws 15 amps at 120V", "15")]
+        for desc, want in legits:
+            f = extract_amperage(desc)
+            self.assertIsNotNone(f, desc)
+            self.assertEqual(f.value, want, desc)
+
+    def test_size_second_dim_honors_mm_marker(self):
+        attrs = extract_all(
+            "DBDS12125G01F Diablo 12\"x20mm - Speed Demon Metal Cut-Off Disc",
+            "DBDS12125G01F", "")
+        size = {f.label: f for f in attrs}["Size"]
+        self.assertEqual(size.value, "12 in x 20 mm")
+
+    def test_size_second_dim_honors_feet_marker(self):
+        attrs = extract_all("8912220 7-1/4\"x12' Hardie Sdg Smooth - Primed "
+                            "HardiePlank", "8912220", "")
+        size = {f.label: f for f in attrs}["Size"]
+        self.assertEqual(size.value, "7-1/4 in x 12 ft")
+
+    def test_size_both_dims_feet(self):
+        attrs = extract_all("1511506 Zip 4'x65' Rainscreen", "1511506", "")
+        size = {f.label: f for f in attrs}["Size"]
+        self.assertEqual(size.value, "4 ft x 65 ft")
+
+    def test_size_foot_inch_composite(self):
+        attrs = extract_all("173950TBK DSI 4\"x8'-6\" SQ Black Alum Post Wrap",
+                            "173950TBK", "")
+        size = {f.label: f for f in attrs}["Size"]
+        self.assertEqual(size.value, "4 in x 8 ft 6 in")
+
+    def test_size_bare_fraction_not_truncated(self):
+        attrs = extract_all("D10CNK Prebena 1/2\"x3/8\" - Staple",
+                            "D10CNK", "")
+        size = {f.label: f for f in attrs}["Size"]
+        self.assertEqual(size.value, "1/2 in x 3/8 in")
+
+    def test_size_space_fraction_tail_kept(self):
+        attrs = extract_all("E28CNKHA Prebena 2/4\"x1 1/8\" - Staple",
+                            "E28CNKHA", "")
+        size = {f.label: f for f in attrs}["Size"]
+        self.assertEqual(size.value, "2/4 in x 1 1/8 in")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -46,9 +46,17 @@ def extract_voltage(desc):
 
 
 def extract_amperage(desc):
-    m = _find_first(desc, r"(\d+(?:\.\d+)?)\s*[- ]?a(?:mps?|mp)\b",
-                    r"(\d+(?:\.\d+)?)\s*A\b")
+    # Token-boundary guards on both sides: a rating must stand alone, never
+    # inside a hyphenated identifier ('9A-570-240', 'TGI2-T36A') or glued to
+    # letters/digits ('KPTDR050A', 'BATT4A'). A match that IS the leading
+    # token is the part number itself ('37418A Kichler Bath Light'), not a
+    # rating.
+    m = _find_first(desc,
+                    r"(?<![\w.\-/])(\d+(?:\.\d+)?)\s*[- ]?a(?:mps?|mp)\b(?![\w-])",
+                    r"(?<![\w.\-/])(\d+(?:\.\d+)?)\s*A\b(?![\w-])")
     if m and m.group(1):
+        if desc.split()[0].upper() == m.group(0).strip().upper():
+            return None
         return _fact("Amperage Rating", m, uom="A")
     return None
 
@@ -145,7 +153,11 @@ def extract_size(desc):
         return Fact(label="Size", value="%s in" % v, status=NORMALIZED,
                     evidence=str(dims))
     if "d1" in dims:
-        return Fact(label="Size", value="%s in x %s in" % (dims["d1"], dims["d2"]),
+        # unit-aware pair ('12 in x 20 mm', '4 ft x 65 ft'); legacy rows
+        # without fmt keys keep the inches assumption
+        v = " x ".join([dims.get("d1_fmt", "%s in" % dims["d1"]),
+                        dims.get("d2_fmt", "%s in" % dims["d2"])])
+        return Fact(label="Size", value=v,
                     status=NORMALIZED, evidence=str(dims))
     if "dual_in" in dims:
         ev = '%s"/%smm' % (dims["dual_in"], dims["dual_mm"])

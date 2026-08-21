@@ -109,8 +109,8 @@ Only 2 rows are available for direct output-level ground-truth evaluation. This 
 - manufacturer/brand     populated    2913 / blank    2087 ( 58.3%)
 - taxonomy               populated    5000 / blank       0 (100.0%)
 - descriptions           populated    5000 / blank    1000 ( 83.3%)
-- attributes             populated    3109 / blank  146891 (  2.1%)
-- features/marketing     populated    1295 / blank   23705 (  5.2%)
+- attributes             populated    3051 / blank  146949 (  2.0%)
+- features/marketing     populated    1278 / blank   23722 (  5.1%)
 - assets                 populated    5580 / blank    1420 ( 79.7%)
 - urls/documents         populated       0 / blank   20000 (  0.0%)
 - commercial/logistics   populated       0 / blank   21000 (  0.0%)
@@ -125,13 +125,13 @@ Only 2 rows are available for direct output-level ground-truth evaluation. This 
 - filler phrases: 0 | fabricated URLs: 0 | asset-existence claims: 0 | blanket warranty claims: 0
 
 ## I. Blank-field analysis
-- 223103/252000 cells blank (88.5%); 198 columns always blank; 34000 blanks are intentional (no source data)
+- 223178/252000 cells blank (88.6%); 198 columns always blank; 34000 blanks are intentional (no source data)
 - blank in identifiers/input         2000
 - blank in manufacturer/brand        2087
 - blank in taxonomy                     0
 - blank in descriptions              1000
-- blank in attributes              146891
-- blank in features/marketing       23705
+- blank in attributes              146949
+- blank in features/marketing       23722
 - blank in assets                    1420
 - blank in urls/documents           20000
 - blank in commercial/logistics     21000
@@ -149,6 +149,6 @@ Only 2 rows are available for direct output-level ground-truth evaluation. This 
 Only 2 rows are available for direct output-level ground-truth evaluation. This is NOT statistically representative of the 1,000-row evaluation dataset.
 
 ## Provenance summary
-- COPIED=0, NORMALIZED=1286, DERIVED=0, INFERRED=0, UNKNOWN=137
+- COPIED=0, NORMALIZED=1269, DERIVED=0, INFERRED=0, UNKNOWN=137
 
 ## Overall verdict: PASS

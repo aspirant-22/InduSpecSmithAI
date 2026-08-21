@@ -59,10 +59,27 @@ def inch_fraction_wrap(value):
 
 
 # Number fragment shared by the dimension patterns below.
-# Decimal-first ordering: '3.2' must be consumed whole, never as '3' + '.2'.
-_NUM = r"(\d+\.\d+|\d+(?:-\d+/\d+)?|\d+/\d+|\.\d+)"
-# Unit suffix after a dimension number: a quote mark OR a bare in/inches form.
-_UNIT_SUFFIX = r'(?:\s*["\u2033]|\s*(?:in(?:ch(?:es)?)?)\.?)?'
+# Ordering matters: decimal and fraction forms must be tried before bare
+# digits so '3.2' is never split into '3' + '.2' and '3/8' into '3' + '/8'.
+_NUM = r"(\d+\.\d+|\d+/\d+|\d+(?:-\d+/\d+)?|\.\d+)"
+# Second-slot variant that also accepts a space-separated fraction tail
+# ('x1 1/8"' staple lengths). Kept out of the shared fragment on purpose:
+# a spaced fraction after an unrelated number must not start a dimension.
+_NUM_XS = r"(\d+\.\d+|\d+/\d+|\d+(?:-\d+/\d+|\s\d+/\d+)?|\.\d+)"
+# Unit suffix after a dimension number: quote mark, metric/foot markers,
+# OR a bare in/inches form. Captures the marker so callers can tell
+# inches from mm/ft instead of assuming every dimension is inches.
+_UNIT_SUFFIX = r'(?:\s*(["\u2033]|mm\b|[\'\u2032]|ft\b|feet\b|in(?:ch(?:es)?)?\.?))?'
+
+
+def _dim_text(num, unit):
+    """Format one captured dimension honoring its explicit unit marker."""
+    u = (unit or "").strip().lower()
+    if u.startswith("mm"):
+        return "%s mm" % num
+    if u in ("'", "\u2032") or u.startswith("ft"):
+        return "%s ft" % num
+    return "%s in" % inch_fraction_wrap(num)
 
 
 def parse_dimensions(desc):
@@ -90,10 +107,11 @@ def parse_dimensions(desc):
         + _NUM + _UNIT_SUFFIX + r"\s*x\s*"
         + _NUM + _UNIT_SUFFIX + r">?",
         d, re.I)
-    # Pattern B: double like 4-1/2" x 1/8" or 1/2in x 18in
+    # Pattern B: double like 4-1/2" x 1/8" or 1/2in x 18in; the second
+    # slot also accepts a space-fraction tail ('x1 1/8"')
     double = re.search(
         r"(?<![\w.\-/])" + _NUM + _UNIT_SUFFIX + r"\s*x\s*"
-        + _NUM + _UNIT_SUFFIX,
+        + _NUM_XS + _UNIT_SUFFIX,
         d, re.I)
     # size hints
     mm = re.search(r"(\d+(?:\.\d+)?)\s*mm", d, re.I)
@@ -124,20 +142,32 @@ def parse_dimensions(desc):
     parts = []
     dims = {}
     if triple:
-        a, b, c = triple.groups()
-        parts = [inch_fraction_wrap(a), inch_fraction_wrap(b), inch_fraction_wrap(c)]
+        a, _, b, _, c, _ = triple.groups()
+        parts = [inch_fraction_wrap(a) + " in",
+                 inch_fraction_wrap(b) + " in",
+                 inch_fraction_wrap(c) + " in"]
         dims["diameter"] = a
         dims["thickness"] = b
         dims["arbor"] = c
         # summarized
     elif double:
-        a, b = double.groups()
-        parts = [inch_fraction_wrap(a), inch_fraction_wrap(b)]
+        a, ua, b, ub = double.groups()
         dims["d1"] = a
         dims["d2"] = b
+        v1 = _dim_text(a, ua)
+        v2 = _dim_text(b, ub)
+        # foot-inch composite tail on a foot-marked second dim: 8'-6"
+        if (ub or "").strip() in ("'", "\u2032"):
+            comp = re.match(r"\s*-\s*(\d+)\s*(?:[\"\u2033]|in\.?\b)",
+                            d[double.end():], re.I)
+            if comp:
+                v2 = "%s ft %s in" % (b, comp.group(1))
+        parts = [v1, v2]
+        dims["d1_fmt"] = v1
+        dims["d2_fmt"] = v2
     elif dual:
         a, b = dual.groups()
-        parts = [inch_fraction_wrap(a)]
+        parts = [inch_fraction_wrap(a) + " in"]
         dims["dual_in"] = a
         dims["dual_mm"] = b
     if mm:
@@ -145,10 +175,10 @@ def parse_dimensions(desc):
     if single and not (triple or double or dual):
         dims["single_in"] = single.group(1)
         if not parts:
-            parts = [inch_fraction_wrap(single.group(1))]
+            parts = [inch_fraction_wrap(single.group(1)) + " in"]
     size = ""
     if parts:
-        size = " in x ".join(parts) + " in"
+        size = " x ".join(parts)
     return size, dims
 
 

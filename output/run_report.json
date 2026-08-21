@@ -4,11 +4,11 @@
   "columns_out": 252,
   "output_file": "C:\\Users\\riyam\\OneDrive\\Desktop\\InduSpecSmith_AI\\output\\Unihack_Delivery_Output.csv",
   "attribute_provenance": {
-    "emitted_populated": 1286,
+    "emitted_populated": 1269,
     "emitted_blank": 137,
     "by_status": {
       "COPIED": 0,
-      "NORMALIZED": 1286,
+      "NORMALIZED": 1269,
       "DERIVED": 0,
       "INFERRED": 0,
       "UNKNOWN": 137
