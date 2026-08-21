@@ -28,10 +28,37 @@ EXPECTED_FILE = os.path.join(DATA_DIR,
                              "Unihack_ Expected Output - Delivery Format.csv")
 
 
-def _asset_name(brand, mpn):
-    b = re.sub(r"[^A-Za-z0-9]", "", brand or "").upper()
+def _asset_base(brand, mpn):
+    """Deterministic '{Brand}_{MPN}' stem, or '' when no brand is resolved.
+
+    BrandDisplayForm = canonical BRAND_NAME reduced to alphanumerics with
+    casing preserved (ground truth: FRIGIDAIRE(R) -> FRIGIDAIRE,
+    Whirlpool(R) -> Whirlpool). Without a resolved brand the observed
+    convention cannot be followed, so no filename is generated rather than
+    inventing a brand segment.
+    """
+    b = re.sub(r"[^A-Za-z0-9]", "", brand or "")
     m = re.sub(r"[^A-Za-z0-9_-]", "", clean(mpn))
-    return "%s_%s.jpg" % (b, m) if b else "%s.jpg" % m
+    if not b or not m:
+        return ""
+    return "%s_%s" % (b, m)
+
+
+def _asset_fields(brand, mpn):
+    """Expected asset filenames per the observed delivery convention.
+
+    A generated filename is NOT a claim that the file exists - availability
+    is signalled only by 'Actual Image (Yes/No)', which stays blank because
+    no asset inventory is provided with the dataset.
+    """
+    base = _asset_base(brand, mpn)
+    if not base:
+        return {}
+    fields = {"Product Image": base + ".jpg",
+              "Specification Sheet": base + "_Specification_Sheet.pdf"}
+    for i in range(1, 5):
+        fields["Alternate Image %d" % i] = "%s_%d.jpg" % (base, i)
+    return fields
 
 
 def process_row(row):
@@ -95,7 +122,6 @@ def process_row(row):
         "Standard Packaging Information": "",
         "Selling Qty": "",
         "Selling UOM": "",
-        "Product Image": _asset_name(brand, mpn),
         "Actual Image (Yes/No)": "",
         "Country Of Origin": "",
         "Discontinued": "",
@@ -105,6 +131,7 @@ def process_row(row):
     }
     out.update(attr_cols)
     out.update(feat_cols)
+    out.update(_asset_fields(brand, mpn))
     return out
 
 
