@@ -11,7 +11,7 @@ import os
 import re
 import sys
 
-from .common import clean, non_placeholder, normalize_ws
+from .common import clean
 from .classify import classify
 from .branding import resolve_brand, resolve_manufacturer
 from .extract import extract_all
@@ -19,7 +19,6 @@ from .descriptions import (
     mobile_desc, invoice_desc, short_desc, long_desc1, retail_desc,
     marketing_description, item_features, additional_information,
 )
-from .normalize import parse_dimensions
 from . import references
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -33,21 +32,6 @@ def _asset_name(brand, mpn):
     b = re.sub(r"[^A-Za-z0-9]", "", brand or "").upper()
     m = re.sub(r"[^A-Za-z0-9_-]", "", clean(mpn))
     return "%s_%s.jpg" % (b, m) if b else "%s.jpg" % m
-
-
-def _dimension_fields(desc):
-    """Return (length_uom,height_uom,width_uom) best-effort from parse_dimensions."""
-    _, dims = parse_dimensions(desc)
-    out = {}
-    if "d1" in dims and "d2" in dims:
-        out["LENGTH"] = dims["d1"]
-        out["WIDTH"] = dims["d2"]
-        out["LENGTH_UOM"] = "in"
-        out["WIDTH_UOM"] = "in"
-    if "diameter" in dims:
-        out["HEIGHT"] = dims["diameter"]
-        out["HEIGHT_UOM"] = "in"
-    return out
 
 
 def process_row(row):
@@ -73,18 +57,18 @@ def process_row(row):
     feats = item_features(attrs)
     feat_cols = {"ITEM_FEATURES_%d" % (i + 1): f for i, f in enumerate(feats)}
 
-    dims = _dimension_fields(desc)
     addl = additional_information(desc, attrs)
     addl_text = ", ".join(addl) if addl else ""
 
+    # input columns are passed through verbatim - placeholders included
     out = {
-        "PART_NUMBER": clean(row.get("PART_NUMBER", mpn)),
+        "PART_NUMBER": "",
         "Mfg_Part_Num": mpn,
         "Part_Desc": desc,
-        "E1_Brand": non_placeholder(row.get("E1_Brand", "")),
-        "Unilog_Brand": non_placeholder(row.get("Unilog_Brand", "")),
-        "DIB_Brand": non_placeholder(row.get("DIB_Brand", "")),
-        "Part_Manuf": non_placeholder(row.get("Part_Manuf", "")),
+        "E1_Brand": clean(row.get("E1_Brand", "")),
+        "Unilog_Brand": clean(row.get("Unilog_Brand", "")),
+        "DIB_Brand": clean(row.get("DIB_Brand", "")),
+        "Part_Manuf": clean(row.get("Part_Manuf", "")),
         "MANUFACTURER_NAME": manufacturer,
         "BRAND_NAME": brand,
         "TRADE_NAME": "",
@@ -105,22 +89,21 @@ def process_row(row):
                                                        product),
         "Product Name": product,
         "Standard/Approvals": "",
-        "Warranty": "1 Year Manufacturer",
-        "Warranty Information": "Refer to manufacturer",
+        "Warranty": "",
+        "Warranty Information": "",
         "Standard Packaging Information": "",
-        "Selling Qty": "1",
-        "Selling UOM": "ea",
+        "Selling Qty": "",
+        "Selling UOM": "",
         "Product Image": _asset_name(brand, mpn),
-        "Actual Image (Yes/No)": "Yes",
+        "Actual Image (Yes/No)": "",
         "Country Of Origin": "",
-        "Discontinued": "No",
+        "Discontinued": "",
         "UNSPSC": "",
-        "UPC": clean(row.get("UPC", "")),
+        "UPC": "",
         "List Price": "",
     }
     out.update(attr_cols)
     out.update(feat_cols)
-    out.update(dims)
     return out
 
 
