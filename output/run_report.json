@@ -1,0 +1,13 @@
+{
+  "input_file": "C:\\Users\\riyam\\OneDrive\\Desktop\\InduSpecSmith_AI\\data\\input\\Unihack_ Sample Dataset - Input.csv",
+  "rows": 1000,
+  "columns_out": 252,
+  "output_file": "C:\\Users\\riyam\\OneDrive\\Desktop\\InduSpecSmith_AI\\output\\Unihack_Delivery_Output.csv",
+  "reference": {
+    "files": [],
+    "manufacturer_list": "not found - built-in tables active",
+    "ground_truth": "not found",
+    "uom": "not found - UNIT_STANDARD active",
+    "lov": "not found"
+  }
+}
