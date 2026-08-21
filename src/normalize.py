@@ -58,26 +58,68 @@ def inch_fraction_wrap(value):
     return format_inch_number(v)
 
 
+# Number fragment shared by the dimension patterns below.
+# Decimal-first ordering: '3.2' must be consumed whole, never as '3' + '.2'.
+_NUM = r"(\d+\.\d+|\d+(?:-\d+/\d+)?|\d+/\d+|\.\d+)"
+# Unit suffix after a dimension number: a quote mark OR a bare in/inches form.
+_UNIT_SUFFIX = r'(?:\s*["\u2033]|\s*(?:in(?:ch(?:es)?)?)\.?)?'
+
+
 def parse_dimensions(desc):
     """
     Extract a dimensional summary from a description.
     Returns (size_string, dims_dict) where dims_dict has keys like
-    'length','width','height','diameter','thickness','arbor' etc.
+    'length','width','height','diameter','thickness','arbor','dual_in',
+    'single_in' etc.
+
+    Supported evidence forms (all explicit-unit; bare numbers are ignored):
+      4-1/2" x 1/8" x 7/8"   triple quoted
+      1/2in x 18in           double with explicit in-suffix
+      12"/300mm              dual imperial/metric single dimension
+      300mm                  metric single
+      7-1/4in.               single explicit-inch dimension
     """
     d = str(desc)
+    # dual imperial/metric: 12"/300mm (one dimension expressed twice)
+    dual = re.search(
+        r"(?<![\w.\-/])" + _NUM + r'\s*["\u2033]\s*/\s*(\d{2,4})\s*mm\b',
+        d, re.I)
     # Pattern A: full triple like 4-1/2" x 1/8" x 7/8", 1/2"x18"
     triple = re.search(
-        r"(\d+(?:-\d+/\d+)?|\d+/\d+|\.\d+)\s*[\"\u2033]?\s*x\s*"
-        r"(\d+(?:-\d+/\d+)?|\d+/\d+|\.\d+)\s*[\"\u2033]?\s*x\s*"
-        r"(\d+(?:-\d+/\d+)?|\d+/\d+|\.\d+)\s*[\"\u2033]?>?",
+        r"(?<![\w.\-/])" + _NUM + _UNIT_SUFFIX + r"\s*x\s*"
+        + _NUM + _UNIT_SUFFIX + r"\s*x\s*"
+        + _NUM + _UNIT_SUFFIX + r">?",
         d, re.I)
+    # Pattern B: double like 4-1/2" x 1/8" or 1/2in x 18in
     double = re.search(
-        r"(\d+(?:-\d+/\d+)?|\d+/\d+|\.\d+)\s*[\"\u2033]?\s*x\s*"
-        r"(\d+(?:-\d+/\d+)?|\d+/\d+|\.\d+)\s*[\"\u2033]?(?:x\s*\d+)?",
+        r"(?<![\w.\-/])" + _NUM + _UNIT_SUFFIX + r"\s*x\s*"
+        + _NUM + _UNIT_SUFFIX,
         d, re.I)
     # size hints
     mm = re.search(r"(\d+(?:\.\d+)?)\s*mm", d, re.I)
-    ft = re.search(r"(\d+(?:[-/]\d+)?)\s*(?:ft|'|')", d, re.I)
+
+    # single explicit-inch dimension, e.g. '7-1/4in.' blade diameter.
+    # Guards: the unit must be ATTACHED to the number ('7-1/4in.', '18in') -
+    # a spaced form ('4 in', '12345 in stock') stays ambiguous and is
+    # refused; a period-abbreviated form ('in.') is accepted even when a
+    # code follows ('24T'); the bare form is rejected when a number follows
+    # ('3 in 1' style traps); value capped at 200 like the other branches.
+    single = re.search(
+        r"(?<![\w.\-/])" + _NUM +
+        r"(?:in(?:ch(?:es)?)?)\.(?!\d)",
+        d, re.I)
+    if not single:
+        single = re.search(
+            r"(?<![\w.\-/])" + _NUM +
+            r"(?:in(?:ch(?:es)?)?)\b(?!\.?\s*\d)",
+            d, re.I)
+    if single:
+        try:
+            sane = float(single.group(1).split("-")[0].split("/")[0]) <= 200
+        except ValueError:
+            sane = False
+        if not sane:
+            single = None
 
     parts = []
     dims = {}
@@ -93,8 +135,17 @@ def parse_dimensions(desc):
         parts = [inch_fraction_wrap(a), inch_fraction_wrap(b)]
         dims["d1"] = a
         dims["d2"] = b
+    elif dual:
+        a, b = dual.groups()
+        parts = [inch_fraction_wrap(a)]
+        dims["dual_in"] = a
+        dims["dual_mm"] = b
     if mm:
         dims["mm_size"] = mm.group(1)
+    if single and not (triple or double or dual):
+        dims["single_in"] = single.group(1)
+        if not parts:
+            parts = [inch_fraction_wrap(single.group(1))]
     size = ""
     if parts:
         size = " in x ".join(parts) + " in"

@@ -54,8 +54,13 @@ def extract_amperage(desc):
 
 
 def extract_wattage(desc):
-    m = _find_first(desc, r"(\d{2,5})\s*w(?:atts?)?\b")
-    if m and m.group(1):
+    # multi-digit: spacing allowed ('60 W', '1500 watts')
+    m = _find_first(desc, r"\b(\d{2,5})\s*w(?:atts?)?\b")
+    # single-digit: must be attached ('9W') - a spaced form like 'LowE-2 w/'
+    # is a code fragment, not a watt value
+    if not m:
+        m = _find_first(desc, r"\b(\d)w(?:atts?)?\b")
+    if m and m.group(1) and 1 <= int(m.group(1)) <= 9999:
         return _fact("Wattage", m, uom="W")
     return None
 
@@ -142,8 +147,15 @@ def extract_size(desc):
     if "d1" in dims:
         return Fact(label="Size", value="%s in x %s in" % (dims["d1"], dims["d2"]),
                     status=NORMALIZED, evidence=str(dims))
+    if "dual_in" in dims:
+        ev = '%s"/%smm' % (dims["dual_in"], dims["dual_mm"])
+        return Fact(label="Size", value="%s in" % dims["dual_in"],
+                    status=NORMALIZED, evidence=ev)
     if "mm_size" in dims:
         return Fact(label="Size", value="%s mm" % dims["mm_size"],
+                    status=NORMALIZED, evidence=str(dims))
+    if "single_in" in dims:
+        return Fact(label="Size", value="%s in" % dims["single_in"],
                     status=NORMALIZED, evidence=str(dims))
     return None
 
@@ -163,6 +175,15 @@ def extract_pack(desc):
         m = re.search(pat, desc, re.I)
         if m:
             return _fact("Package Quantity", m, uom=uom)
+    # explicit word form: 'Two Pack' - 'pack' establishes package semantics;
+    # a bare count word without 'pack' is never a quantity.
+    m = re.search(r"\b(two|three|four|five|six)[ -]pack\b", desc, re.I)
+    if m:
+        words = {"two": "2", "three": "3", "four": "4",
+                 "five": "5", "six": "6"}
+        return Fact(label="Package Quantity",
+                    value=words[m.group(1).lower()], uom="pk",
+                    evidence=m.group(0), status=NORMALIZED)
     return None
 
 
@@ -170,6 +191,71 @@ def extract_cycle_count(desc):
     m = _find_first(desc, r"(\d+)[ -]wash[ -]?cycle", r"(\d+)\s*cycles\b")
     if m:
         return _fact("Number of Wash Cycles", m)
+    return None
+
+
+def extract_gauge(desc):
+    """Wire/nail gauge: '15GA', '18Ga', '16 gauge' -> Gauge = N ga."""
+    m = _find_first(desc, r"\b(\d{1,2})\s*[- ]?\s*ga(?:uge)?\b")
+    if m and m.group(1) and 1 <= int(m.group(1)) <= 50:
+        return _fact("Gauge", m, uom="ga")
+    return None
+
+
+def extract_horsepower(desc):
+    """Motor rating: '1.75HP', '3HP', '1/2 HP' -> Horsepower = N hp.
+
+    Never touches voltage: '115V' / '1PH' carry no hp token.
+    """
+    m = _find_first(desc, r"\b(\d{1,3}(?:\.\d+)?(?:\s*/\s*\d+)?)\s*hp\b")
+    if not m or not m.group(1):
+        return None
+    raw = m.group(1).replace(" ", "")
+    if "/" in raw:
+        a, _, b = raw.partition("/")
+        ok = a.isdigit() and b.isdigit() and 0 < int(a) <= 20 <= 100 * int(b)
+    else:
+        ok = float(raw) <= 100
+    if ok:
+        return _fact("Horsepower", m, value=raw, uom="hp")
+    return None
+
+
+def extract_speed(desc):
+    """'2-Speed' / '3 speed' -> Speed = N. Bare numbers never emit."""
+    m = _find_first(desc, r"\b(\d{1,2})[\s-]speed\b")
+    if m and m.group(1):
+        return _fact("Speed", m)
+    return None
+
+
+def extract_range(desc):
+    """Operating/reach range ONLY when the word 'range' anchors the token:
+    '30ft Range' or 'Range of 50 ft'. A bare '100ft' is ambiguous (line
+    length? product length?) and is deliberately refused."""
+    m = _find_first(
+        desc,
+        r"\b(\d{1,4})\s*(?:ft|feet|foot)\s+range\b",
+        r"\brange\s+(?:of\s+)?(\d{1,4})\s*(?:ft|feet|foot)\b")
+    if m and m.group(1):
+        return _fact("Range", m, uom="ft")
+    return None
+
+
+# a container noun must co-occur with the oz token; without it '16oz' on a
+# hammer would be head weight in lb-oz, not this attribute.
+_CONTAINER_RE = re.compile(
+    r"\b(?:bottle|jug|canister|jar|drum|pail|tub|bucket|canteen|thermos"
+    r"|flask)\b", re.I)
+
+
+def extract_weight(desc):
+    """Explicit container capacity in oz: '24oz Bottle' -> Weight = 24 oz."""
+    if not _CONTAINER_RE.search(desc):
+        return None
+    m = _find_first(desc, r"\b(\d{1,4}(?:\.\d+)?)\s*(?:oz|ounces?)\b")
+    if m and m.group(1):
+        return _fact("Weight", m, uom="oz")
     return None
 
 
@@ -202,6 +288,9 @@ def extract_all(desc, mpn="", brand=""):
         extract_cycle_count, extract_mounting,
         extract_size, extract_material, extract_color, extract_finish,
         extract_grit, extract_pack,
+        # Phase 6: appended (stable order - existing slots never shift)
+        extract_gauge, extract_horsepower, extract_speed, extract_range,
+        extract_weight,
     ]
     attrs = []
     seen = set()

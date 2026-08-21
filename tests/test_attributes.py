@@ -197,5 +197,283 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(out["MARKETING_DESCRIPTION"], "")
 
 
+class Phase6GaugeTests(unittest.TestCase):
+    def _gauge(self, desc):
+        by = {f.label: f for f in extract_all(desc, "", "")}
+        return by.get("Gauge")
+
+    def test_nail_gauge_15ga(self):
+        g = self._gauge('603150 2-1/2" Finish Nail 15GA - 4M')
+        self.assertEqual(g.triple, ("Gauge", "15", "ga"))
+        self.assertEqual(g.evidence, "15GA")
+
+    def test_mixed_case_ga(self):
+        g = self._gauge("Paslode CT200S24 18Ga ST Brad Nailer")
+        self.assertEqual(g.value, "18")
+        self.assertEqual(g.uom, "ga")
+
+    def test_gauge_after_voltage_token(self):
+        g = self._gauge('XNB04Z Makita 18V 2" Brad Nailer 18GA (Bare)')
+        self.assertEqual(g.value, "18")
+
+    def test_unrelated_numbers_not_gauge(self):
+        for desc in ("Widget Steel 4 in", "Motor 120V 15 Amp",
+                     "Plain Bolt 18V", "Disc 4-1/2\" x 1/8\""):
+            self.assertIsNone(self._gauge(desc), desc)
+
+
+class Phase6HorsepowerTests(unittest.TestCase):
+    def _hp(self, desc):
+        by = {f.label: f for f in extract_all(desc, "", "")}
+        return by.get("Horsepower")
+
+    def test_decimal_hp(self):
+        h = self._hp('JT1-549 JWBS18SFX 18" Bandsaw - 1.75HP 1PH 115V')
+        self.assertEqual(h.triple, ("Horsepower", "1.75", "hp"))
+
+    def test_integer_hp_with_voltage(self):
+        by = {f.label: f for f in
+              extract_all("10047VS Oliver 3HP 230V 1PH Shaper 1-1/4 Spindle",
+                          "", "")}
+        self.assertEqual(by["Horsepower"].triple, ("Horsepower", "3", "hp"))
+        self.assertEqual(by["Voltage Rating"].value, "230")
+
+    def test_fraction_hp(self):
+        h = self._hp("Pump 1/2 HP Cast Iron")
+        self.assertEqual(h.triple, ("Horsepower", "1/2", "hp"))
+
+    def test_no_phase_attribute_invented(self):
+        labels = _labels(extract_all(
+            'JT1-549 JWBS18SFX 18" Bandsaw - 1.75HP 1PH 115V', "", ""))
+        for bad in ("Phase", "PH", "Power Phase"):
+            self.assertNotIn(bad, labels)
+
+    def test_hp_does_not_interfere_with_voltage(self):
+        by = {f.label: f for f in extract_all("2HP,115V 1Ph Motor", "", "")}
+        self.assertEqual(by["Horsepower"].value, "2")
+        self.assertEqual(by["Voltage Rating"].value, "115")
+
+
+class Phase6SpeedTests(unittest.TestCase):
+    def _speed(self, desc):
+        by = {f.label: f for f in extract_all(desc, "", "")}
+        return by.get("Speed")
+
+    def test_two_speed(self):
+        s = self._speed("DCGG581B Dewalt 20V Grease Gun 2-Speed")
+        self.assertEqual(s.triple, ("Speed", "2", ""))
+
+    def test_space_form(self):
+        s = self._speed("Drill 3 speed Reversible")
+        self.assertEqual(s.value, "3")
+
+    def test_no_speed_from_arbitrary_number(self):
+        self.assertIsNone(self._speed("Grease Gun 20V"))
+        self.assertIsNone(self._speed("Variable speed motor"))
+        self.assertIsNone(self._speed("Widget 2"))
+
+
+class Phase6RangeTests(unittest.TestCase):
+    def _range(self, desc):
+        by = {f.label: f for f in extract_all(desc, "", "")}
+        return by.get("Range")
+
+    def test_laser_range(self):
+        r = self._range("DW089CG Dewalt Laser Level - 3 Line 30ft Range")
+        self.assertEqual(r.triple, ("Range", "30", "ft"))
+
+    def test_range_prefix_form(self):
+        r = self._range("Detector Range of 50 ft")
+        self.assertEqual(r.triple, ("Range", "50", "ft"))
+
+    def test_bare_feet_refused(self):
+        # chalk reel line length is NOT deterministically a range
+        self.assertIsNone(self._range("IWHT48441RC Irwin 100ft - Red Chalk & Reel Set"))
+
+    def test_range_not_size(self):
+        attrs = extract_all("Dewalt Laser Level - 3 Line 30ft Range", "", "")
+        self.assertEqual(_labels(attrs).count("Size"), 0)
+
+
+class Phase6WeightTests(unittest.TestCase):
+    def _weight(self, desc):
+        by = {f.label: f for f in extract_all(desc, "", "")}
+        return by.get("Weight")
+
+    def test_bottle_oz(self):
+        w = self._weight("48-22-8396R Milw 24oz Bottle - Insulated")
+        self.assertEqual(w.triple, ("Weight", "24", "oz"))
+
+    def test_second_bottle(self):
+        w = self._weight("48-22-8397R Milw 36oz Bottle - Insulated")
+        self.assertEqual(w.value, "36")
+
+    def test_oz_without_container_refused(self):
+        self.assertIsNone(self._weight("Framing Hammer 16oz"))
+        self.assertIsNone(self._weight("LED Bulb 9W"))
+
+
+class Phase6DimensionTests(unittest.TestCase):
+    def _size(self, desc):
+        by = {f.label: f for f in extract_all(desc, "", "")}
+        return by.get("Size")
+
+    def test_bare_in_double(self):
+        s = self._size("DCM200B Dewalt 1/2in x 18in - Band File")
+        self.assertEqual(s.value, "1/2 in x 18 in")
+
+    def test_single_blade_diameter(self):
+        s = self._size("48-40-0740 Milw 7-1/4in. 24T - Framing Circ Saw Blade")
+        self.assertEqual(s.value, "7-1/4 in")  # never '24 in'
+
+    def test_dual_imperial_metric(self):
+        s = self._size("BC-12300 BigCal 12\"/300mm")
+        self.assertEqual(s.value, "12 in")
+
+    def test_metric_square(self):
+        s = self._size("MLSQ1120 Milw 300mm Rafter - Square (Metric)")
+        self.assertEqual(s.value, "300 mm")
+
+    def test_quoted_dims_unchanged(self):
+        # existing canon: disc rows emit the diameter as Size
+        s = self._size('49-94-1940 Milw 14"x1/8"x1" Masonry Cut Off Disc')
+        self.assertEqual(s.value, "14 in")
+
+    def test_spaced_single_inch_stays_refused(self):
+        # project canon: 'Widget Steel 4 in' emits Material only
+        self.assertIsNone(self._size("Widget Steel 4 in"))
+
+    def test_n_in_1_trap_rejected(self):
+        self.assertIsNone(self._size("3 in 1 Oil Multi Tool"))
+
+    def test_mpn_numbers_not_dimensions(self):
+        self.assertIsNone(self._size("48-40-0740 circular saw"))
+        self.assertIsNone(self._size("Item 12345 in stock"))
+
+
+class Phase6PackageWordTests(unittest.TestCase):
+    def _pack(self, desc):
+        by = {f.label: f for f in extract_all(desc, "", "")}
+        return by.get("Package Quantity")
+
+    def test_word_pack(self):
+        p = self._pack("48-11-2422 Milw M12 CP2.0 Battery Two Pack")
+        self.assertEqual(p.triple, ("Package Quantity", "2", "pk"))
+        self.assertEqual(p.evidence, "Two Pack")
+
+    def test_digit_pack_unchanged(self):
+        p = self._pack("564922 60W Led BA11 50k 3pk")
+        self.assertEqual(p.triple, ("Package Quantity", "3", "pk"))
+
+    def test_bare_count_word_refused(self):
+        self.assertIsNone(self._pack("Two way radio"))
+        self.assertIsNone(self._pack("Three legged stool"))
+
+
+class Phase6FalsePositiveTests(unittest.TestCase):
+    """Product-number traps and contextual ambiguity locks."""
+
+    def test_18v_never_gauge(self):
+        by = {f.label: f for f in
+              extract_all("Makita 18V 2\" Brad Nailer", "", "")}
+        self.assertNotIn("Gauge", by)
+
+    def test_18ga_never_voltage_or_amperage(self):
+        by = {f.label: f for f in
+              extract_all("Paslode CT200S24 18Ga ST Brad Nailer", "", "")}
+        self.assertIn("Gauge", by)
+        self.assertNotIn("Voltage Rating", by)
+        self.assertNotIn("Amperage Rating", by)
+
+    def test_2speed_not_size(self):
+        by = {f.label: f for f in
+              extract_all("DCGG581B Dewalt 20V Grease Gun 2-Speed", "", "")}
+        self.assertIn("Speed", by)
+        self.assertNotIn("Size", by)
+
+    def test_30ft_range_not_size(self):
+        by = {f.label: f for f in
+              extract_all("Dewalt Laser Level - 3 Line 30ft Range", "", "")}
+        self.assertIn("Range", by)
+        self.assertNotIn("Size", by)
+
+    def test_24oz_bottle_not_dimension(self):
+        by = {f.label: f for f in
+              extract_all("Milw 24oz Bottle - Insulated", "", "")}
+        self.assertIn("Weight", by)
+        self.assertNotIn("Size", by)
+
+    def test_50k_is_cct_not_wattage(self):
+        by = {f.label: f for f in
+              extract_all('801274 10w LED 6" Retro 50k', "", "")}
+        self.assertEqual(by["Wattage"].value, "10")
+        self.assertEqual(by["Color Temperature"].value, "5000")
+
+    def test_120v_15a_pair_preserved(self):
+        by = {f.label: f for f in extract_all("Motor 120V 15A", "", "")}
+        self.assertEqual(by["Voltage Rating"].triple,
+                         ("Voltage Rating", "120", "V"))
+        self.assertEqual(by["Amperage Rating"].triple,
+                         ("Amperage Rating", "15", "A"))
+
+    def test_single_wattage_fact_only(self):
+        facts = [f for f in extract_all("Lamp 60W bulb 60W equivalent", "", "")
+                 if f.label == "Wattage"]
+        self.assertEqual(len(facts), 1)
+
+    def test_mpn_style_tokens_stay_inert(self):
+        labels = _labels(extract_all("48-22-8396R Milw insulated", "", ""))
+        self.assertEqual(labels, [])
+
+
+class Phase6ProvenanceTests(unittest.TestCase):
+    REAL_DESCS = [
+        '603150 2-1/2" Finish Nail 15GA - 4M',
+        "JT1-549 JWBS18SFX 18\" Bandsaw - 1.75HP 1PH 115V",
+        "DCGG581B Dewalt 20V Grease Gun 2-Speed",
+        "DW089CG Dewalt Laser Level - 3 Line 30ft Range",
+        "48-22-8396R Milw 24oz Bottle - Insulated",
+        "DCM200B Dewalt 1/2in x 18in - Band File",
+        "BC-12300 BigCal 12\"/300mm",
+        "48-11-2422 Milw M12 CP2.0 Battery Two Pack",
+    ]
+
+    def test_new_facts_carry_full_provenance(self):
+        for desc in self.REAL_DESCS:
+            for f in extract_all(desc, "", ""):
+                self.assertEqual(f.source, "Part_Desc", desc)
+                self.assertTrue(f.evidence, "%s / %s" % (desc, f.label))
+                self.assertEqual(f.status, NORMALIZED)
+
+    def test_inferred_never_emitted_phase6(self):
+        for desc in self.REAL_DESCS:
+            for f in extract_all(desc, "", ""):
+                self.assertNotEqual(f.status, INFERRED)
+
+    def test_uom_values_are_canonical(self):
+        checks = {"Gauge": "ga", "Horsepower": "hp", "Range": "ft",
+                  "Weight": "oz"}
+        for desc in self.REAL_DESCS:
+            for f in extract_all(desc, "", ""):
+                if f.label in checks:
+                    self.assertEqual(f.uom, checks[f.label])
+
+    def test_dataset_wide_no_inferred_and_known_labels(self):
+        import csv as _csv
+        allowed = {"Series", "Voltage Rating", "Amperage Rating", "Wattage",
+                   "Sound Level", "Color Temperature", "Lumens",
+                   "Number of Wash Cycles", "Mounting Type", "Size",
+                   "Material", "Color", "Finish", "Abrasive Grit",
+                   "Package Quantity", "Gauge", "Horsepower", "Speed",
+                   "Range", "Weight"}
+        with open(ROOT + r"\data\input\Unihack_ Sample Dataset - Input.csv",
+                  encoding="utf-8-sig") as fh:
+            rows = list(_csv.DictReader(fh))
+        for r in rows:
+            for f in extract_all(r["Part_Desc"], r["Mfg_Part_Num"], ""):
+                self.assertIn(f.label, allowed, r["Mfg_Part_Num"])
+                self.assertEqual(f.status, NORMALIZED)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

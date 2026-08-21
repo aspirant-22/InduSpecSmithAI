@@ -130,6 +130,12 @@ def invoice_desc(desc, attrs, product, mpn):
     grit = av.get("Abrasive Grit", ("", ""))[0]
     if grit:
         toks.append(str(grit).upper())
+    hp = av.get("Horsepower", ("", ""))[0]
+    if hp:
+        toks.append("%sHP" % hp)
+    ga = av.get("Gauge", ("", ""))[0]
+    if ga:
+        toks.append("%sGA" % ga)
     s = " ".join(toks).upper()
     return _truncate_words(s, INVOICE_MAX)
 
@@ -140,6 +146,8 @@ def _short_phrase(lab, val, uom):
         return "%s Mounting" % val
     if lab == "Number of Wash Cycles":
         return "%s-Wash Cycle" % val
+    if lab == "Speed":
+        return "%s-Speed" % val
     if uom:
         return "%s %s" % (val, uom)
     return str(val)
@@ -153,6 +161,8 @@ def _long_phrase(lab, val, uom):
         return "%s dBA Sound Level" % val
     if lab == "Mounting Type":
         return "%s Mounting" % val
+    if lab == "Speed":
+        return "%s-Speed" % val
     if uom:
         return "%s %s" % (val, uom)
     return str(val)
