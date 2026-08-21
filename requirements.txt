@@ -1,0 +1,8 @@
+# InduSpecSmith AI
+#
+# Core pipeline (src/, tools/): Python 3.13 standard library only.
+# The demo interface adds the two dependencies below; everything else
+# runs offline with no network access.
+
+streamlit>=1.60
+pandas>=2.0
