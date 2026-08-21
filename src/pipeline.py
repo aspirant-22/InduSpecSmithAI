@@ -15,6 +15,7 @@ from .common import clean
 from .classify import classify
 from .branding import resolve_brand, resolve_manufacturer
 from .extract import extract_all
+from .facts import Fact, DERIVED, UNKNOWN, blank_slot, provenance_totals
 from .descriptions import (
     mobile_desc, invoice_desc, short_desc, long_desc1, retail_desc,
     marketing_description, item_features, additional_information,
@@ -61,6 +62,39 @@ def _asset_fields(brand, mpn):
     return fields
 
 
+# The only attribute schema evidenced by the provided ground truth (both
+# sample rows are built-in dishwashers). Labels are emitted even when the
+# value cannot be supported, exactly as the expected output does. No other
+# family has an evidenced schema, so those rows emit extracted facts only.
+DISHWASHER_SCHEMA = [
+    "Series", "Model", "Number of Wash Cycles", "Voltage Rating",
+    "Amperage Rating", "Mounting Type", "Plug Type", "Size",
+    "Depth With Door Open", "Minimum Height", "Maximum Height",
+    "Sound Level", "Material", "Color", "Additional Information",
+]
+
+
+def _attribute_slots(product, attrs, addl_text=""):
+    """Deterministic ATTRIBUTE_LABEL/VALUE/UOM mapping for one row.
+
+    Dishwasher rows follow the ground-truth family schema; every other
+    family emits extracted facts in fixed extractor order. Unused slots
+    stay blank - labels are never invented.
+    """
+    by_label = {f.label: f for f in attrs}
+    if product == "Dishwasher":
+        facts = []
+        for lab in DISHWASHER_SCHEMA:
+            if lab == "Additional Information":
+                facts.append(Fact(label=lab, value=addl_text,
+                                  status=DERIVED if addl_text else UNKNOWN))
+            else:
+                f = by_label.get(lab)
+                facts.append(f if f is not None else blank_slot(lab))
+        return facts
+    return list(attrs)
+
+
 def process_row(row):
     """Enrich a single input row -> dict keyed by output column name."""
     desc = clean(row.get("Part_Desc", ""))
@@ -74,18 +108,24 @@ def process_row(row):
     series = next((v for l, v, _ in attrs if l == "Series"), "")
     mounting = next((v for l, v, _ in attrs if l == "Mounting Type"), "")
 
-    # attribute triple columns
-    attr_cols = {}
-    for i, (lab, val, uom) in enumerate(attrs[:50], start=1):
-        attr_cols["ATTRIBUTE_LABEL %d" % i] = lab
-        attr_cols["ATTRIBUTE_VALUE %d" % i] = val
-        attr_cols["ATTRIBUTE_UOM %d" % i] = uom
-
     feats = item_features(attrs)
     feat_cols = {"ITEM_FEATURES_%d" % (i + 1): f for i, f in enumerate(feats)}
 
     addl = additional_information(desc, attrs)
     addl_text = ", ".join(addl) if addl else ""
+
+    emitted_facts = _attribute_slots(product, attrs, addl_text)
+
+    # attribute triple columns - all 50 slots always present (blank = unused)
+    attr_cols = {}
+    for i, fact in enumerate(emitted_facts[:50], start=1):
+        attr_cols["ATTRIBUTE_LABEL %d" % i] = fact.label
+        attr_cols["ATTRIBUTE_VALUE %d" % i] = fact.value
+        attr_cols["ATTRIBUTE_UOM %d" % i] = fact.uom
+    for i in range(len(emitted_facts) + 1, 51):
+        attr_cols["ATTRIBUTE_LABEL %d" % i] = ""
+        attr_cols["ATTRIBUTE_VALUE %d" % i] = ""
+        attr_cols["ATTRIBUTE_UOM %d" % i] = ""
 
     # input columns are passed through verbatim - placeholders included
     out = {
@@ -132,6 +172,7 @@ def process_row(row):
     out.update(attr_cols)
     out.update(feat_cols)
     out.update(_asset_fields(brand, mpn))
+    out["_facts"] = emitted_facts  # provenance; ignored by the CSV writer
     return out
 
 
@@ -155,17 +196,21 @@ def main():
     rows = load_input(input_path)
     os.makedirs(OUT_DIR, exist_ok=True)
     out_path = os.path.join(OUT_DIR, "Unihack_Delivery_Output.csv")
+    prov_rows = []
     with open(out_path, "w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=headers, extrasaction="ignore")
         w.writeheader()
         for row in rows:
-            w.writerow(process_row(row))
+            out = process_row(row)
+            prov_rows.append(out.get("_facts", []))
+            w.writerow(out)
 
     report = {
         "input_file": input_path,
         "rows": len(rows),
         "columns_out": len(headers),
         "output_file": out_path,
+        "attribute_provenance": provenance_totals(prov_rows),
         "reference": references.apply(),
     }
     with open(os.path.join(OUT_DIR, "run_report.json"), "w") as f:

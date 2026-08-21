@@ -3,6 +3,8 @@
 Rows: 1000
 Header parity: True (252 cols vs expected 252)
 
+NOTE: Only 2 rows are available for direct output-level ground-truth evaluation; this is NOT statistically representative of the 1,000-row evaluation dataset.
+
 ## Required-field emptiness
 - Mfg_Part_Num           0
 - Part_Desc              0
@@ -26,8 +28,16 @@ Header parity: True (252 cols vs expected 252)
 none
 
 ## Attribute triples
-- distinct labels used: 11
-- labels without values: 0
+- distinct labels used: 20
+- labels without values: 137
+
+## Attribute coverage & provenance (Phase 4)
+- distinct labels used: 20
+- rows with >=1 populated attribute: 683/1000 (68.3%)
+- populated attribute slots: 1262
+- labeled-but-blank slots (UNKNOWN): 137
+- provenance of emitted values: COPIED=0, NORMALIZED=1262, DERIVED=0, INFERRED=0, UNKNOWN=137
+- INFERRED values emitted: 0 (must be 0)
 
 ## Ground-truth scoring
 reference ground-truth file not present in data/reference - skipped

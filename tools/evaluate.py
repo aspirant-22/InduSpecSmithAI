@@ -50,6 +50,10 @@ def main():
     add("Header parity: %s (%d cols vs expected %d)" %
         (exp_headers == out_headers, len(out_headers), len(exp_headers)))
     add("")
+    add("NOTE: Only 2 rows are available for direct output-level "
+        "ground-truth evaluation; this is NOT statistically representative "
+        "of the 1,000-row evaluation dataset.")
+    add("")
 
     # 1. required field presence
     missing = {k: 0 for k in REQUIRED}
@@ -91,6 +95,42 @@ def main():
     add("## Attribute triples")
     add("- distinct labels used: %d" % len(attr_count))
     add("- labels without values: %d" % bad_triples)
+    add("")
+
+    # 4b. Phase 4 - attribute coverage & provenance
+    add("## Attribute coverage & provenance (Phase 4)")
+    populated = 0
+    blank_slots = 0
+    rows_with_attrs = 0
+    labels_used = set()
+    for r in rows:
+        n = 0
+        for i in range(1, 51):
+            lab = r.get("ATTRIBUTE_LABEL %d" % i, "")
+            val = r.get("ATTRIBUTE_VALUE %d" % i, "")
+            if lab:
+                labels_used.add(lab)
+                if val:
+                    n += 1
+                    populated += 1
+                else:
+                    blank_slots += 1
+        if n:
+            rows_with_attrs += 1
+    add("- distinct labels used: %d" % len(labels_used))
+    add("- rows with >=1 populated attribute: %d/%d (%.1f%%)" %
+        (rows_with_attrs, len(rows), 100.0 * rows_with_attrs / max(len(rows), 1)))
+    add("- populated attribute slots: %d" % populated)
+    add("- labeled-but-blank slots (UNKNOWN): %d" % blank_slots)
+    prov = {}
+    rr_path = os.path.join(ROOT, "output", "run_report.json")
+    if os.path.exists(rr_path):
+        with open(rr_path, encoding="utf-8") as f:
+            prov = json.load(f).get("attribute_provenance", {}).get("by_status", {})
+    add("- provenance of emitted values: " +
+        ", ".join("%s=%d" % (s, prov.get(s, 0)) for s in
+                  ("COPIED", "NORMALIZED", "DERIVED", "INFERRED", "UNKNOWN")))
+    add("- INFERRED values emitted: %d (must be 0)" % prov.get("INFERRED", 0))
     add("")
 
     # 5. ground truth scoring (optional)
