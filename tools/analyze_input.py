@@ -1,9 +1,11 @@
 """Exploratory analysis of the UniHack sample input CSV."""
 import csv
 import collections
+import os
 import re
+from pathlib import Path
 
-INPUT = r"C:\Users\riyam\OneDrive\Desktop\InduSpecSmith_AI\data\input\Unihack_ Sample Dataset - Input.csv"
+INPUT = str(Path(__file__).resolve().parent.parent / "data" / "input" / "Unihack_ Sample Dataset - Input.csv")
 
 PLACEHOLDERS = {"-- unbranded --", "-- no unilog brand --", "-- no dib brand --", "-", "", "nan", "none"}
 

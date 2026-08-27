@@ -1,7 +1,8 @@
 """Print full Part_Manuf list + sample rows per broad category."""
-import csv, collections, re
+import csv, collections, os, re
+from pathlib import Path
 
-INPUT = r"C:\Users\riyam\OneDrive\Desktop\InduSpecSmith_AI\data\input\Unihack_ Sample Dataset - Input.csv"
+INPUT = str(Path(__file__).resolve().parent.parent / "data" / "input" / "Unihack_ Sample Dataset - Input.csv")
 PLACE = {"-- unbranded --", "-- no unilog brand --", "-- no dib brand --", "-", "", "nan", "none"}
 
 

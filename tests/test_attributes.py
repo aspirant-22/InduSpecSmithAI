@@ -6,6 +6,7 @@ import csv
 import os
 import sys
 import unittest
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -14,7 +15,7 @@ from src.facts import (Fact, COPIED, NORMALIZED, DERIVED, INFERRED, UNKNOWN,
                        provenance_totals)
 from src.pipeline import process_row, DISHWASHER_SCHEMA
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = Path(__file__).resolve().parent.parent
 
 BULB_DESC = "564922 60W Led BA11 50k 3pk"
 DISHWASHER_DESC = "KDFM404KPS Dishwasher SS"
@@ -169,7 +170,7 @@ class RegressionTests(unittest.TestCase):
     """Phase 1-3 protection inside the Phase-4 suite."""
 
     def test_six_input_columns_verbatim(self):
-        with open(ROOT + r"\data\input\Unihack_ Sample Dataset - Input.csv",
+        with open(str(ROOT / "data" / "input" / "Unihack_ Sample Dataset - Input.csv"),
                   encoding="utf-8-sig") as f:
             inp = list(csv.DictReader(f))
         sample = inp[0]
@@ -179,7 +180,7 @@ class RegressionTests(unittest.TestCase):
             self.assertEqual(out[c], sample[c].strip())
 
     def test_header_parity_unchanged(self):
-        with open(ROOT + r"\data\input\Unihack_ Expected Output - Delivery Format.csv",
+        with open(str(ROOT / "data" / "input" / "Unihack_ Expected Output - Delivery Format.csv"),
                   encoding="utf-8-sig") as f:
             hdr = next(csv.reader(f))
         self.assertEqual(len(hdr), 252)
@@ -466,7 +467,7 @@ class Phase6ProvenanceTests(unittest.TestCase):
                    "Material", "Color", "Finish", "Abrasive Grit",
                    "Package Quantity", "Gauge", "Horsepower", "Speed",
                    "Range", "Weight"}
-        with open(ROOT + r"\data\input\Unihack_ Sample Dataset - Input.csv",
+        with open(str(ROOT / "data" / "input" / "Unihack_ Sample Dataset - Input.csv"),
                   encoding="utf-8-sig") as fh:
             rows = list(_csv.DictReader(fh))
         for r in rows:
