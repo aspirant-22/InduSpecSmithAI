@@ -22,6 +22,31 @@ content, verified by a 140-test suite and a hard evaluation gate.
 
 👉 **([Open InduSpecSmith AI](https://induspecsmithai-2fbxl9oe6qh4qx3tutmjxp.streamlit.app/))**
 
+## Live Demo
+
+**Live Application:** [Open InduSpecSmith AI](YOUR_STREAMLIT_URL)
+
+> **Note:** The hosted Streamlit application may occasionally enter a sleep
+> state after a period of inactivity. If the "This app has gone to sleep"
+> screen appears, click **"Yes, get this app back up!"** and the application
+> will restart automatically.
+> 
+> <img width="960" height="540" alt="Screenshot 2026-08-29 113436" src="https://github.com/user-attachments/assets/bd3e203c-b92b-42c8-b80d-d477344d2b45" />
+
+
+### Demo & Verification
+
+The submitted demo video showcases the complete working application and its
+core functionality.
+
+**Key Validation Results:**
+- 1,000 input products processed
+- 6 input columns → 252 delivery-format columns
+- 140/140 automated tests passing
+- Evaluation verdict: PASS
+- Zero inferred values
+- Human-review workflow for flagged records
+
 ---
 
 ## 🏆 Project Overview
