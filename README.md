@@ -30,8 +30,11 @@ content, verified by a 140-test suite and a hard evaluation gate.
 > state after a period of inactivity. If the "This app has gone to sleep"
 > screen appears, click **"Yes, get this app back up!"** and the application
 > will restart automatically.
-> 
+> ### Before Starting the project
 > <img width="960" height="540" alt="Screenshot 2026-08-29 113436" src="https://github.com/user-attachments/assets/bd3e203c-b92b-42c8-b80d-d477344d2b45" />
+>
+> ### After Start (Running project)
+> <img width="960" height="540" alt="Screenshot 2026-08-29 114837" src="https://github.com/user-attachments/assets/4de5031b-1e20-4cf1-8d70-fdd5d4bb6dd8" />
 
 
 ### Demo & Verification
